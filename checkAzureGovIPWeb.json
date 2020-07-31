@@ -1,0 +1,329 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Condition": {
+                "actions": {
+                    "Send_an_email_(V2)": {
+                        "inputs": {
+                            "body": {
+                                "Attachments": [
+                                    {
+                                        "ContentBytes": "@{base64(variables('jsonData'))}",
+                                        "Name": "Lastestweb.json"
+                                    }
+                                ],
+                                "Body": "<p><br></p>",
+                                "Subject": "Azure Gov IPs Changed (web) from @{variables('lastRead')} to @{variables('changeNumberInt')}",
+                                "To": "@parameters('toEmail')"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['office365']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/v2/Mail"
+                        },
+                        "runAfter": {
+                            "Update_blob": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnection"
+                    },
+                    "Terminate_2": {
+                        "inputs": {
+                            "runStatus": "Succeeded"
+                        },
+                        "runAfter": {
+                            "Send_an_email_(V2)": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Terminate"
+                    },
+                    "Update_blob": {
+                        "inputs": {
+                            "body": "@variables('changeNumberInt')",
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                }
+                            },
+                            "method": "put",
+                            "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent('JTJmc2VydmljZXRhZyUyZmxhc3RSZWFkLnR4dA=='))}"
+                        },
+                        "metadata": {
+                            "JTJmc2VydmljZXRhZyUyZmxhc3RSZWFkLnR4dA==": "/servicetag/lastRead.txt"
+                        },
+                        "runAfter": {},
+                        "type": "ApiConnection"
+                    }
+                },
+                "else": {
+                    "actions": {
+                        "Terminate": {
+                            "inputs": {
+                                "runError": {
+                                    "code": "300",
+                                    "message": "No update found"
+                                },
+                                "runStatus": "Failed"
+                            },
+                            "runAfter": {},
+                            "type": "Terminate"
+                        }
+                    }
+                },
+                "expression": {
+                    "and": [
+                        {
+                            "less": [
+                                "@variables('lastRead')",
+                                "@variables('changeNumberInt')"
+                            ]
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "set_last_Read": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "If"
+            },
+            "Get_blob_content": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azureblob']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent('JTJmc2VydmljZXRhZyUyZmxhc3RSZWFkLnR4dA=='))}/content",
+                    "queries": {
+                        "inferContentType": true
+                    }
+                },
+                "metadata": {
+                    "JTJmc2VydmljZXRhZyUyZmxhc3RSZWFkLnR4dA==": "/servicetag/lastRead.txt"
+                },
+                "runAfter": {
+                    "set_change_Number": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "HTTP": {
+                "inputs": {
+                    "method": "GET",
+                    "uri": "https://www.microsoft.com/en-us/download/confirmation.aspx?id=57063"
+                },
+                "runAfter": {},
+                "type": "Http"
+            },
+            "HTTP_2": {
+                "inputs": {
+                    "method": "GET",
+                    "uri": "@variables('url')"
+                },
+                "runAfter": {
+                    "set_download_URL": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Http"
+            },
+            "Parse_JSON": {
+                "inputs": {
+                    "content": "@variables('jsonData')",
+                    "schema": {
+                        "changeNumber": 78,
+                        "cloud": "AzureGovernment",
+                        "values": [
+                            {
+                                "id": "ApplicationInsightsAvailability",
+                                "name": "ApplicationInsightsAvailability",
+                                "properties": {
+                                    "addressPrefixes": [
+                                        "20.140.48.160/27",
+                                        "20.140.56.160/27",
+                                        "20.140.64.160/27",
+                                        "20.140.72.160/27",
+                                        "52.127.49.96/27"
+                                    ],
+                                    "changeNumber": 1,
+                                    "platform": "Azure",
+                                    "region": "",
+                                    "systemService": "ApplicationInsightsAvailability"
+                                }
+                            },
+                            {
+                                "id": "AzureCloud",
+                                "name": "AzureCloud",
+                                "properties": {
+                                    "addressPrefixes": [
+                                        "13.72.0.0/18",
+                                        "104.210.16.0/22",
+                                        "104.210.20.0/22"
+                                    ],
+                                    "changeNumber": 27,
+                                    "platform": "Azure",
+                                    "region": "",
+                                    "systemService": ""
+                                }
+                            }
+                        ]
+                    }
+                },
+                "runAfter": {
+                    "set_json_Data": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ParseJson"
+            },
+            "set_HTML_Data": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "htmlData",
+                            "type": "string",
+                            "value": "@{body('HTTP')}"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "HTTP": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "set_change_Number": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "changeNumberInt",
+                            "type": "integer",
+                            "value": "@body('Parse_JSON')?['changeNumber']"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Parse_JSON": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "set_download_URL": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "url",
+                            "type": "string",
+                            "value": "@{substring(variables('htmlData'),variables('urlStartIndex'),124)}"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "set_start_Index": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "set_json_Data": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "jsonData",
+                            "type": "string",
+                            "value": "@{body('HTTP_2')}"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "HTTP_2": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "set_last_Read": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "lastRead",
+                            "type": "integer",
+                            "value": "@int(body('Get_blob_content'))"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Get_blob_content": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "set_start_Index": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "urlStartIndex",
+                            "type": "integer",
+                            "value": "@int(indexOf(variables('htmlData'),'https://download.microsoft.com/download'))"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "set_HTML_Data": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            },
+            "toEmail": {
+                "defaultValue": "kewar@microsoft.com",
+                "type": "String"
+            }
+        },
+        "triggers": {
+            "Recurrence": {
+                "recurrence": {
+                    "frequency": "Day",
+                    "interval": 1
+                },
+                "type": "Recurrence"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "azureblob": {
+                    "connectionId": "/subscriptions/8b39f90f-8a56-450c-89ca-0d47d63b3251/resourceGroups/WEBAPP/providers/Microsoft.Web/connections/azureblob-1",
+                    "connectionName": "azureblob-1",
+                    "id": "/subscriptions/8b39f90f-8a56-450c-89ca-0d47d63b3251/providers/Microsoft.Web/locations/usgovvirginia/managedApis/azureblob"
+                },
+                "office365": {
+                    "connectionId": "/subscriptions/8b39f90f-8a56-450c-89ca-0d47d63b3251/resourceGroups/WEBAPP/providers/Microsoft.Web/connections/office365",
+                    "connectionName": "office365",
+                    "id": "/subscriptions/8b39f90f-8a56-450c-89ca-0d47d63b3251/providers/Microsoft.Web/locations/usgovvirginia/managedApis/office365"
+                }
+            }
+        }
+    }
+}
